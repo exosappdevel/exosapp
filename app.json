@@ -2,7 +2,10 @@
   "expo": {
     "name": "exosapp",
     "slug": "exosapp",
-    "version": "1.0.0",
+    "version": "1.0.20260205",
+    "extra": {
+      "appVersion": "1.0.20260205"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -24,6 +27,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }
