@@ -4,11 +4,11 @@ export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
   const [appConfig] = useState({
-    passtrough_mode: true,
-    name: "demo",
-    server: "https://www.elidev.com.mx",
+    passtrough_mode: false,
+    name: "exosapp",
+    server: "https://exorta.exos.software/",
     passkey: "{PASSKEY}",
-    url: "https://www.elidev.com.mx/demo/control.php",
+    url: "https://exorta.exos.software/",
   });
 
   const [user, setUser] = useState({ id: "", nombre: "" });

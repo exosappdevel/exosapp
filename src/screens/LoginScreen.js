@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import Constants from "expo-constants";
 import {
   StyleSheet,
@@ -15,8 +15,10 @@ import {
 
 // Importamos el contexto para usar los parámetros globales
 import { AppContext } from "../context/AppContext";
+import ApiService from "../services/ApiServices";
 
 export default function LoginScreen({ navigation }) {
+
   // Extraemos lo que necesitamos del contexto
   const { appConfig, setUser } = useContext(AppContext);
 
@@ -25,7 +27,10 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState("");
   const [mensajeError, setMensajeError] = useState("");
   const [cargando, setCargando] = useState(false);
-
+  // Inicializamos el servicio con la configuración del contexto
+  useEffect(() => {
+    ApiService.init(appConfig);
+  }, [appConfig]);
   const handleLogin = async () => {
     setMensajeError("");
 
@@ -39,38 +44,28 @@ export default function LoginScreen({ navigation }) {
 
     try {
       let data = {};
+
       if (appConfig.passtrough_mode) {
         data = {
           result: "ok",
           user_data: {
-            id: 1,
-            sys_id: 1003,
-            nombre: "Jonatan R",
-            email: "hecjona@gmail.com"
+            id_sesion: 1,
+            id_almacen: 1,
+            nombre: "Jonatan R"
           }
         };
       } else {
-        // 2. Petición al servidor PHP
-        const response = await fetch(appConfig.url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user: usuario,
-            pass: password,
-            key: appConfig.passkey,
-          }),
-        });
 
-        data = await response.json();
+        data = await ApiService.login(usuario, password);
       }
       // 3. Manejo de la respuesta
       if (data.result === "ok") {
+        setMensajeError(data.result_text || "Inicio de sesión exitoso");
         // Guardamos los datos en el contexto global
         setUser({
-          id: data.user_data.id,
-          sys_id: data.user_data.sys_id,
-          nombre: data.user_data.nombre,
-          email: data.user_data.email,
+          id_sesion: data.id_sesion,
+          id_almacen: data.id_almacen,
+          nombre: data.alias_usuario.toUpperCase()
         });
 
         // Navegamos a la pantalla Home
@@ -96,7 +91,7 @@ export default function LoginScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* LOGO - La ruta sube dos niveles para llegar a assets */}
         <Image
-          source={require("../../assets/logo-default.png")}
+          source={require("../../assets/exosapp_logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -149,6 +144,11 @@ export default function LoginScreen({ navigation }) {
             Versión de la App: {Constants.expoConfig?.extra?.appVersion || "Cargando..."}
           </Text>
         </View>
+        <Image
+          source={require("../../assets/logo_Elidev.png")}
+          style={styles.logo_elidev}
+          resizeMode="contain"
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -171,7 +171,18 @@ const styles = StyleSheet.create({
     height: 120,        // Ajusta la altura a tu gusto
     marginBottom: 30,
     borderRadius: 8,
-    backgroundColor: "#ececec", // Fondo blanco para el logo
+    //backgroundColor: "#ececec", // Fondo blanco para el logo
+    alignSelf: "center", // Se asegura de estar centrado si el padre es más ancho
+  },
+  logo_elidev: {
+    width: "50%",       // Ocupa todo el ancho disponible del padre
+    maxWidth: 200,      // Pero no se pasa del máximo que tiene el form
+    height: 60,        // Ajusta la altura a tu gusto
+    marginBottom: 0,
+    marginTop: 100,
+    marginLeft:200,
+    borderRadius: 8,
+    //backgroundColor: "#ececec", // Fondo blanco para el logo
     alignSelf: "center", // Se asegura de estar centrado si el padre es más ancho
   },
   form: {
