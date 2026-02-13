@@ -56,7 +56,7 @@ export default function LoginScreen({ navigation }) {
         };
       } else {
 
-        data = await ApiService.login(usuario, password);
+        data = await ApiService.inicia_sesion(usuario, password);
       }
       // 3. Manejo de la respuesta
       if (data.result === "ok") {
