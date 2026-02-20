@@ -49,8 +49,9 @@ export default function LoginScreen({ navigation }) {
         data = {
           result: "ok",
           user_data: {
-            id_sesion: 1,
-            id_almacen: 1,
+            id_usuario_app:1,
+            id_usuario:1,
+            id_almacen:1,
             nombre: "Jonatan R"
           }
         };
@@ -63,9 +64,10 @@ export default function LoginScreen({ navigation }) {
         setMensajeError(data.result_text || "Inicio de sesión exitoso");
         // Guardamos los datos en el contexto global
         setUser({
-          id_sesion: data.id_sesion,
-          nombre: data.alias_usuario.toUpperCase(),
+          id_usuario_app:data.id_usuario_app,
+          id_usuario:data.id_usuario,
           id_almacen: data.id_almacen,
+          nombre: data.alias_usuario.toUpperCase(),
           tema: data.tema || "light"
         });
 

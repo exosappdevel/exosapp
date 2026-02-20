@@ -11,7 +11,7 @@ export const AppProvider = ({ children }) => {
     url: "https://exorta.exos.software/",
   });
 
-  const [user, setUser] = useState({ id: "", nombre: "", tema: "light" });
+  const [user, setUser] = useState({ id_usuario_app: "", id_usuario:"",id_almacen:"", nombre: "", tema: "light" });
 
   // Definición de colores por tema
   const themes = {

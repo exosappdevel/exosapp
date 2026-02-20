@@ -17,7 +17,7 @@ export default function TerminalesScreen({ navigation }) {
   const fetchTerminales = async () => {
     try {
       setLoading(true);
-      const data = await ApiService.get_terminales_list(user.id_sesion);
+      const data = await ApiService.get_terminales_list(user.id_usuario,user.id_almacen);
       setTerminales(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error:", error);

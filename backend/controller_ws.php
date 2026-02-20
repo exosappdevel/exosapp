@@ -17,75 +17,247 @@ require_once "include/db_tools.php";
 require_once "lib/nusoap.php";
 require_once "dompdf/autoload.inc.php";
 include "assets/plugins/phpqrcode/qrlib.php";
+require_once "include/functions_ws.php";
 
 date_default_timezone_set('America/Mexico_City');
 @session_start();
 
 class WebServiceController {
+    private $exosApp;
+    private $implemented;
+    private $result;
+    
+    /**
+     * Mapa de metadatos para el Auditor de Métodos
+     */
+    private $metodos_info = [
+        'metodo_ejemplo' => [
+            'descripcion' => 'Ejemplo de implementacion real.',
+            'parameters'  => ['id']
+        ],
+        'inicia_sesion' => [
+            'descripcion' => 'Valida las credenciales del usuario y genera una sesión activa.',
+            'parameters'  => ['login_usuario', 'login_password']
+        ],
+        'get_terminales_list' => [
+            'descripcion' => 'Obtiene la lista de terminales configuradas para el proceso de picking.',
+            'parameters'  => ['id_usuario','id_almacen', 'limit (opcional)']
+        ],
+        'get_pickeo_list' => [
+            'descripcion' => 'Recupera el listado de productos y cantidades pendientes para una terminal específica.',
+            'parameters'  => ['id_usuario','id_terminal', 'limit (opcional)']
+        ],
+        'pickeo_checkout' => [
+            'descripcion' => 'Registra el avance final del pickeo y cierra la transacción de la terminal.',
+            'parameters'  => ['id_usuario','id_terminal', 'datos_pickeo (JSON)']
+        ]
+        
+    ];
 
     public function __construct() {
-        $this->exosApp = new ExosApp_WS(); // Instanciamos la clase de lógica real
+        $this->exosApp = new ExosApp_WS(); 
+        $this->implemented = false;
+        $this->result = [null];
         $this->run();
     }
 
     public function run() {
-        // Usamos $_REQUEST para asegurar que capture 'action' tanto por GET como por POST
         $action = isset($_REQUEST["action"]) ? $_REQUEST["action"] : null;
+        $subAction = isset($_REQUEST["sub_action"]) ? $_REQUEST["sub_action"] : null;
 
         if (!$action) {
             $this->sendError("Acción no especificada.");
         }
-       
-        if ($this->exosApp->Implemented($action)) {
-            $result = $this->exosApp->$action();
-            $this->sendResponse($result);
+
+        // --- NUEVA ACCIÓN: LISTAR TODOS LOS MÉTODOS ---
+        if ($action === "audit_methods") {
+            $this->listAllMethods();
         }
-        else {
-            $metodosProhibidos = ['run', 'sendResponse', 'sendError', '__construct'];
-            
-            if (method_exists($this, $action) && !in_array($action, $metodosProhibidos)) {
-                $this->$action();
-            } else {
+
+        // --- AUDITOR DE MÉTODO INDIVIDUAL ---
+        if ( $subAction === "audit") {
+            $this->auditMethod($action);
+        }
+
+        // --- FLUJO DE EJECUCIÓN (Lógica Real o Mockups) ---
+        if ($this->exosApp->Implemented($action)) {
+            $this->result = $this->exosApp->$action();
+            $this->implemented = true;
+        } else {
+            $this->result = [];
+            $this->implemented = false;
+        }
+        $metodosProhibidos = ['run', 'sendResponse', 'sendError', '__construct', 'auditMethod', 'listAllMethods'];
+        
+        if (method_exists($this, $action) && !in_array($action, $metodosProhibidos)) {
+            $this->$action();
+        } else {
+            if ($this->implemented == true){
+                $this->sendResponse($this->result);
+            }
+            else{
                 $this->sendError("La acción '{$action}' no es válida.");
             }
         }
     }
 
-    // --- LOGIN ---
-    public function inicia_sesion() {
-        $login_usuario = Requesting("login_usuario");
-        $login_password = Requesting("login_password");
-
-        if (!$login_usuario || !$login_password) {
-            $this->sendError("Usuario y contraseña requeridos.");
-        }
-
-        // Se mantiene la lógica de tu archivo original con md5
-        $query = "SELECT COUNT(id_usuario) AS existe, id_usuario, usuario, id_almacen, activo 
-                  FROM usuario 
-                  WHERE usuario = '".$login_usuario."' AND password = '".md5($login_password)."'";
-        
-        $existe = GetValueSQL($query, "existe");
-        
-        if($existe == 0){
-            $this->sendError("Usuario o Contraseña incorrectos.");
-        } else {
-            $id_sesion = session_id();
-            $this->sendResponse([
-                'result' => 'ok',
-                'id_sesion' => $id_sesion,
-                'alias_usuario' => GetValueSQL($query, "usuario"),
-                'id_almacen' => GetValueSQL($query, "id_almacen"),
-                'tema' => "light",
-                'result_text' => 'Acceso correcto'
-            ]);
-        } 
+    // --- UTILIDADES ---
+    private function sendResponse($data) {
+        // XML_Envelope es la función encargada de transformar el array a XML
+        XML_Envelope($data);
+        exit;
     }
 
-    // --- GET TERMINALES (RESTAURADO) ---
+    private function sendError($message) {
+        $this->sendResponse([
+            'result' => 'error',
+            'result_text' => $message
+        ]);
+    }
+    /**
+     * Lista todos los métodos registrados en el sistema de auditoría.
+     */
+    private function listAllMethods() {
+        $data = [
+            'result' => 'true',
+            'total_methods' => count($this->metodos_info)
+        ];
+
+        $i = 0;
+        foreach ($this->metodos_info as $name => $info) {
+            $data['method_' . $i] = [
+                'action' => $name,
+                'descripcion' => $info['descripcion'],
+                'parametros_count' => count($info['parameters'])
+            ];
+            $i++;
+        }
+
+        $this->sendResponse($data);
+    }
+
+    /**
+     * Auditoría de un método específico.
+     */
+    private function auditMethod($action) {
+        if (isset($this->metodos_info[$action])) {
+            $info = $this->metodos_info[$action];
+            $data = [
+                'result'      => 'true',
+                'descripcion' => $info['descripcion'],
+                'parameters'  => []
+            ];
+
+            foreach ($info['parameters'] as $index => $param) {
+                $data['item_' . $index] = ['nombre' => $param];
+            }
+
+            $this->sendResponse($data);
+        } else {
+            $this->sendError("No existe información de auditoría para la acción solicitada.");
+        }
+    }
+
+
+    // -------------------------- IMPLEMENTACION DE LOS WEB SERVICES MOCKUP --------------------
+    private function db_test(){
+        try{
+            $dbConx = mysqli_connect(Requesting('host'),Requesting('user'),Requesting('password'),Requesting('database'));
+            $sSQL = isset($_REQUEST["sql"]) ? $_REQUEST["sql"] : "";
+            $field = Requesting('field');
+            $rsTemp=DatasetSQL_con($sSQL,$dbConx);
+            if ($rsTemp!=null){
+                $row = mysqli_fetch_array($rsTemp);
+                $value = $row[$field=='' ? 0 : $field];
+                $this->sendResponse([$field=>$value]); 
+                return;
+            }
+        }
+        catch (Exception $e) {
+            $id_usuario_app = 0;
+            $tema = "light";
+            $this->sendResponse(["exception" =>   $e->getMessage()]);
+        }
+    }
+    // --- LOGIN ---
+    public function inicia_sesion() {
+        // if IMPLEMENTED 
+        if ($this->implemented && $this->result != null){
+           $id_usuario = $this->result["id_usuario"];
+        }
+        else { // ELSE USE NEXT MOCKUP
+            $login_usuario = Requesting("login_usuario");
+            $login_password = Requesting("login_password");
+
+            if (!$login_usuario || !$login_password) {
+                $this->sendError("Usuario y contraseña requeridos.");
+            }
+
+            // Se mantiene la lógica de tu archivo original con md5
+            $query = "SELECT COUNT(id_usuario) AS existe, id_usuario, id_almacen, usuario, activo 
+                    FROM usuario 
+                    WHERE usuario = '".$login_usuario."' AND password = '".md5($login_password)."'";
+            
+            $existe = GetValueSQL($query, "existe");
+            
+            if($existe == 0){
+                $this->sendError("Usuario o Contraseña incorrectos.");
+                return;
+            } 
+                $id_usuario = GetValueSQL($query, "id_usuario");
+                $this->result =
+                        [
+                            'result' => 'ok',
+                            'id_usuario' => $id_usuario,
+                            'id_almacen' => GetValueSQL($query, "id_almacen"),
+                            'alias_usuario' => GetValueSQL($query, "usuario"),
+                            'result_text' => 'Acceso correcto'
+                        ];
+        }
+         
+        try {
+            $query = "SELECT count(id_usuario_app) as existe, u.* 
+                FROM user_profile u
+                WHERE id_usuario = ".$id_usuario;
+        
+            $existe = GetValueSQL_WS($query, "existe");
+            if ($existe==0){
+                $sql_new ="insert into user_profile(id_usuario_app,id_usuario) values (0,". $id_usuario .")";
+                if (!ExecuteSQL_WS($sql_new)){
+                    $this->result["sql_error"] = $sql_new;
+                }  
+            }
+            
+            $id_usuario_app = GetValueSQL_WS($query,"id_usuario_app");
+            $tema = GetValueSQL_WS($query,"tema");
+        }
+        catch (Exception $e) {
+            $id_usuario_app = 0;
+            $tema = "light";
+            $this->result["exception"] =   'Excepción recibida: '.  $e->getMessage();
+        }
+
+        $this->result["id_usuario_app"] = $id_usuario_app;
+        $this->result["tema"] = $tema;
+
+
+        $this->sendResponse($this->result); 
+    }
+
+    // --- GET TERMINALES 
     public function get_terminales_list() {
-        $id_sesion = Requesting("id_sesion");
-        if (!$id_sesion) $this->sendError("Sesión no válida.");
+        // if IMPLEMENTED
+        if ($this->implemented && $this->result != null){
+           $this->sendResponse($this->result); 
+           return;
+        }
+
+        // ELSE USE NEXT MOCKUP
+
+        $id_usuario = Requesting("id_usuario");
+        $id_almacen = Requesting("id_almacen");
+
+        if (!$id_usuario || !$id_almacen) $this->sendError("paametros no validos");
         $limit = !Requesting("limit") ? 5 : Requesting("limit");
 
         // Query original para obtener productos como terminales
@@ -110,6 +282,14 @@ class WebServiceController {
 
     // --- GET PICKEO (RESTAURADO) ---
     public function get_pickeo_list() {
+        // if IMPLEMENTED
+        if ($this->implemented && $this->result != null){
+           $this->sendResponse($this->result); 
+           return;
+        }
+
+        // ELSE USE NEXT MOCKUP
+
         $id_terminal = Requesting("id_terminal");
         if (!$id_terminal) {
             $this->sendError("ID de terminal requerido.");
@@ -144,10 +324,18 @@ class WebServiceController {
         $this->sendResponse($data ?: ['result' => 'empty']);
     }
     public function pickeo_checkout() {
+        // if IMPLEMENTED
+        if ($this->implemented && $this->result != null){
+           $this->sendResponse($this->result); 
+           return;
+        }
+
+        // ELSE USE NEXT MOCKUP
+
         $id_terminal = Requesting("id_terminal");
         $datos_pickeo = Requesting("datos_pickeo"); // JSON enviado desde la App
 
-        if (!$id_terminal) {
+        if (!$id_terminal || !$datos_pickeo) {
             return ['result' => 'error', 'result_text' => 'ID de terminal no recibido en ExosApp'];
         }
         
@@ -155,20 +343,6 @@ class WebServiceController {
             'result' => 'ok',
             'result_text' => 'Checkout procesado correctamente en ExosApp_WS'
         ];
-    }
-
-    // --- UTILIDADES ---
-    private function sendResponse($data) {
-        // XML_Envelope es la función encargada de transformar el array a XML
-        XML_Envelope($data);
-        exit;
-    }
-
-    private function sendError($message) {
-        $this->sendResponse([
-            'result' => 'error',
-            'result_text' => $message
-        ]);
     }
 }
 

@@ -19,7 +19,7 @@ import ApiService from "../services/ApiServices";
 import { calcularPrioridad } from "../utils/PickeoUtils";
 
 export default function PickeoScreen({ navigation, route }) {
-  const { theme } = useContext(AppContext);
+  const { id_usuario, id_usuario_app, theme } = useContext(AppContext);
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,7 +47,7 @@ export default function PickeoScreen({ navigation, route }) {
       let listaLocal = savedData ? JSON.parse(savedData) : [];
 
       // 2. Llamada al WebService
-      const dataWS = await ApiService.get_pickeo_list(id_terminal);
+      const dataWS = await ApiService.get_pickeo_list(id_usuario,id_terminal);
 
       // Validar si la respuesta es una lista o un objeto único
       let listaWS = [];
@@ -115,7 +115,7 @@ export default function PickeoScreen({ navigation, route }) {
     const confirmarEnvio = async () => {
       try {
         setIsSubmitting(true);
-        const res = await ApiService.pickeo_checkout(id_terminal, productos);
+        const res = await ApiService.pickeo_checkout(user.id_usuario, id_terminal, productos);
         setIsSubmitting(false);
 
         // 1. Extraer el mensaje

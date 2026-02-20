@@ -93,16 +93,17 @@ class ApiService {
     return await this.request("inicia_sesion", { login_usuario: usuario, login_password: password });
   }
 
-  static async get_terminales_list(id_sesion) {
-    return await this.request("get_terminales_list", { id_sesion });
+  static async get_terminales_list(id_usuario,id_almacen) {
+    return await this.request("get_terminales_list", { id_usuario,id_almacen });
   }
 
-  static async get_pickeo_list(id_terminal) {
-    return await this.request("get_pickeo_list", { id_terminal });
+  static async get_pickeo_list(id_usuario,id_terminal) {
+    return await this.request("get_pickeo_list", { id_usuario, id_terminal });
   }
-  static async pickeo_checkout(id_terminal, lista_productos) {
+  static async pickeo_checkout(id_usuario,id_terminal, lista_productos) {
     // Enviamos el JSON de la lista al servidor
     return await this.request("pickeo_checkout", { 
+      id_usuario,
       id_terminal, 
       datos_pickeo: JSON.stringify(lista_productos) 
     });
