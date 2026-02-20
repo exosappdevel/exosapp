@@ -64,8 +64,9 @@ export default function LoginScreen({ navigation }) {
         // Guardamos los datos en el contexto global
         setUser({
           id_sesion: data.id_sesion,
+          nombre: data.alias_usuario.toUpperCase(),
           id_almacen: data.id_almacen,
-          nombre: data.alias_usuario.toUpperCase()
+          tema: data.tema || "light"
         });
 
         // Navegamos a la pantalla Home

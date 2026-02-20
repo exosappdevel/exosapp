@@ -1,4 +1,6 @@
 <?php
+require_once "webservice/exosapp.php";
+
 // 1. Configuraciones de Cabecera (CORS)
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
@@ -22,6 +24,7 @@ date_default_timezone_set('America/Mexico_City');
 class WebServiceController {
 
     public function __construct() {
+        $this->exosApp = new ExosApp_WS(); // Instanciamos la clase de lógica real
         $this->run();
     }
 
@@ -32,13 +35,19 @@ class WebServiceController {
         if (!$action) {
             $this->sendError("Acción no especificada.");
         }
-
-        $metodosProhibidos = ['run', 'sendResponse', 'sendError', '__construct'];
-        
-        if (method_exists($this, $action) && !in_array($action, $metodosProhibidos)) {
-            $this->$action();
-        } else {
-            $this->sendError("La acción '{$action}' no es válida.");
+       
+        if ($this->exosApp->Implemented($action)) {
+            $result = $this->exosApp->$action();
+            $this->sendResponse($result);
+        }
+        else {
+            $metodosProhibidos = ['run', 'sendResponse', 'sendError', '__construct'];
+            
+            if (method_exists($this, $action) && !in_array($action, $metodosProhibidos)) {
+                $this->$action();
+            } else {
+                $this->sendError("La acción '{$action}' no es válida.");
+            }
         }
     }
 
@@ -67,6 +76,7 @@ class WebServiceController {
                 'id_sesion' => $id_sesion,
                 'alias_usuario' => GetValueSQL($query, "usuario"),
                 'id_almacen' => GetValueSQL($query, "id_almacen"),
+                'tema' => "light",
                 'result_text' => 'Acceso correcto'
             ]);
         } 
@@ -76,11 +86,12 @@ class WebServiceController {
     public function get_terminales_list() {
         $id_sesion = Requesting("id_sesion");
         if (!$id_sesion) $this->sendError("Sesión no válida.");
+        $limit = !Requesting("limit") ? 5 : Requesting("limit");
 
         // Query original para obtener productos como terminales
         $query = "SELECT p.id_producto as id_terminal, concat('Terminal ' , p.id_producto) as terminal
                   FROM producto p 
-                  LIMIT 5";	
+                  LIMIT " . $limit;	
         
         $qresult = DatasetSQL($query);
         $data = [];
@@ -103,6 +114,7 @@ class WebServiceController {
         if (!$id_terminal) {
             $this->sendError("ID de terminal requerido.");
         }
+        $limit = !Requesting("limit") ? 10 : Requesting("limit");
 
         // Query original solicitado para la lista de pickeo
         $query = "SELECT p.id_producto, p.nombre, p.referencia, p.codigo_1, m.marca, f.fabricante, 
@@ -110,7 +122,7 @@ class WebServiceController {
                   FROM producto p 
                   LEFT JOIN marca m ON p.id_marca=m.id_marca
                   LEFT JOIN fabricante f ON m.id_fabricante=f.id_fabricante
-                  LIMIT 20"; 
+                  LIMIT " . $limit; 
 
         $qresult = DatasetSQL($query);
         $data = [];
@@ -130,6 +142,19 @@ class WebServiceController {
         }
 
         $this->sendResponse($data ?: ['result' => 'empty']);
+    }
+    public function pickeo_checkout() {
+        $id_terminal = Requesting("id_terminal");
+        $datos_pickeo = Requesting("datos_pickeo"); // JSON enviado desde la App
+
+        if (!$id_terminal) {
+            return ['result' => 'error', 'result_text' => 'ID de terminal no recibido en ExosApp'];
+        }
+        
+        return [
+            'result' => 'ok',
+            'result_text' => 'Checkout procesado correctamente en ExosApp_WS'
+        ];
     }
 
     // --- UTILIDADES ---
