@@ -19,7 +19,8 @@ import ApiService from "../services/ApiServices";
 import { calcularPrioridad } from "../utils/PickeoUtils";
 
 export default function PickeoScreen({ navigation, route }) {
-  const { id_usuario, id_usuario_app, theme } = useContext(AppContext);
+  const { user, theme } = useContext(AppContext);
+  const inputRef = React.useRef(null);
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,11 +34,26 @@ export default function PickeoScreen({ navigation, route }) {
   });
 
   const id_terminal = route.params?.id_terminal;
+  const terminal_nombre = route.params?.terminal_nombre;
   const STORAGE_KEY = `@pickeo_storage_term_${id_terminal}`;
 
   useEffect(() => {
     inicializarDatos();
   }, [id_terminal]);
+  useEffect(() => {
+    if (modalCant.visible) {
+      // Usamos un pequeño delay para esperar a que el Modal esté 100% montado
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          // En Web necesitamos forzar la selección manual
+          if (Platform.OS === 'web') {
+            inputRef.current.setSelectionRange(0, modalCant.cantidad.length);
+          }
+        }
+      }, 150);
+    }
+  }, [modalCant.visible]);
 
   const inicializarDatos = async () => {
     try {
@@ -47,7 +63,7 @@ export default function PickeoScreen({ navigation, route }) {
       let listaLocal = savedData ? JSON.parse(savedData) : [];
 
       // 2. Llamada al WebService
-      const dataWS = await ApiService.get_pickeo_list(id_usuario,id_terminal);
+      const dataWS = await ApiService.get_pickeo_list(user.id_usuario, id_terminal);
 
       // Validar si la respuesta es una lista o un objeto único
       let listaWS = [];
@@ -111,6 +127,7 @@ export default function PickeoScreen({ navigation, route }) {
     setModalCant({ visible: false, item: null, cantidad: "1", esResta: false });
   };
 
+
   const handleCheckOut = async () => {
     const confirmarEnvio = async () => {
       try {
@@ -146,11 +163,15 @@ export default function PickeoScreen({ navigation, route }) {
     };
     if (Platform.OS === "web") {
       if (window.confirm("¿Realizar Check Out de la terminal?"))
+        //inicializarDatos();
         confirmarEnvio();
     } else {
-      Alert.alert("Check Out", "¿Confirmar envío de datos?", [
+      Alert.alert("Check Out", "¿Realizar Check Out de la terminal?", [
         { text: "No" },
-        { text: "Sí", onPress: confirmarEnvio },
+        { text: "Sí", onPress:
+          //inicializarDatos 
+          confirmarEnvio 
+        },
       ]);
     }
   };
@@ -173,7 +194,7 @@ export default function PickeoScreen({ navigation, route }) {
           />
         </TouchableOpacity>
         <Text style={[styles.title, { color: theme.text }]}>
-          Terminal {id_terminal}
+          {user.almacen_codigo} - {terminal_nombre}
         </Text>
         <TouchableOpacity
           onPress={() =>
@@ -217,7 +238,10 @@ export default function PickeoScreen({ navigation, route }) {
               </View>
               <View style={styles.actionsContainer}>
                 <TouchableOpacity
-                  onPress={() => aplicarPick(item, "1", false)}
+                  onPress={(e) => {
+                    if (Platform.OS === 'web') e.currentTarget.blur();
+                    aplicarPick(item, "1", false)
+                  }}
                   style={styles.btnQuick}
                 >
                   <MaterialCommunityIcons
@@ -244,13 +268,17 @@ export default function PickeoScreen({ navigation, route }) {
                     styles.btnAction,
                     { backgroundColor: item.color, marginLeft: 8 },
                   ]}
-                  onPress={() =>
+                  onPress={() => {
+                    if (Platform.OS === 'web') {
+                      document.activeElement?.blur();
+                    }
                     setModalCant({
                       visible: true,
                       item,
                       cantidad: "1",
                       esResta: true,
-                    })
+                    });
+                  }
                   }
                 >
                   <MaterialCommunityIcons
@@ -271,23 +299,35 @@ export default function PickeoScreen({ navigation, route }) {
           onPress={() => setMostrarCompletos(!mostrarCompletos)}
         >
           <Text style={styles.footerBtnText}>
-            {mostrarCompletos ? "OCULTAR" : "TODOS"}
+            {mostrarCompletos ? "Oculta completos" : "Ver todos"}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.footerBtn, { backgroundColor: "#48bb78" }]}
           onPress={handleCheckOut}
           disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.footerBtnText}>CHECK OUT</Text>
-          )}
+        >{isSubmitting ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <MaterialCommunityIcons
+              name="cart-variant"
+              size={20}
+              color="white"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.footerBtnText}>Hacer Corte</Text>
+          </View>
+        )}
         </TouchableOpacity>
       </View>
 
-      <Modal visible={modalCant.visible} transparent animationType="fade">
+      <Modal visible={modalCant.visible}
+        transparent={true}
+        animationType="none" // Cambiado de 'fade' a 'none' para evitar el bug de aria-hidden
+        ariaHideApp={false}  // Propiedad crucial para evitar el error de accesibilidad
+        onRequestClose={() => setModalCant({ ...modalCant, visible: false })}
+      >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.card }]}>
             <Text style={[styles.modalTitle, { color: theme.text }]}>
@@ -302,10 +342,12 @@ export default function PickeoScreen({ navigation, route }) {
                   borderColor: theme.border,
                 },
               ]}
+              ref={inputRef}
               keyboardType="numeric"
               value={modalCant.cantidad}
-              autoFocus
               onChangeText={(t) => setModalCant({ ...modalCant, cantidad: t })}
+              autoFocus={true} // Esto asegura que el teclado se abra solo
+              selectTextOnFocus={true}
             />
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -369,12 +411,12 @@ const styles = StyleSheet.create({
   footer: { flexDirection: "row", padding: 10 },
   footerBtn: {
     flex: 1,
-    padding: 15,
+    padding: 10,
     marginHorizontal: 5,
     borderRadius: 12,
-    alignItems: "center",
+    alignItems: "center"
   },
-  footerBtnText: { color: "white", fontWeight: "bold" },
+  footerBtnText: { color: "white", fontWeight: "bold", fontSize: 12 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.8)",

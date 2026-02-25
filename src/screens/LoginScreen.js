@@ -67,6 +67,8 @@ export default function LoginScreen({ navigation }) {
           id_usuario_app:data.id_usuario_app,
           id_usuario:data.id_usuario,
           id_almacen: data.id_almacen,
+          almacen_nombre: data.almacen_nombre,
+          almacen_codigo: data.almacen_codigo,
           nombre: data.alias_usuario.toUpperCase(),
           tema: data.tema || "light"
         });

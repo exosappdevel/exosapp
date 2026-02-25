@@ -39,6 +39,10 @@ class WebServiceController {
             'descripcion' => 'Valida las credenciales del usuario y genera una sesión activa.',
             'parameters'  => ['login_usuario', 'login_password']
         ],
+        'get_almacenes_list'=> [
+            'descripcion'=> 'obtiene la lista de almacenes',
+            'parameters'=> ['id_usuario','limit (opcional)']
+            ],
         'get_terminales_list' => [
             'descripcion' => 'Obtiene la lista de terminales configuradas para el proceso de picking.',
             'parameters'  => ['id_usuario','id_almacen', 'limit (opcional)']
@@ -194,9 +198,9 @@ class WebServiceController {
             }
 
             // Se mantiene la lógica de tu archivo original con md5
-            $query = "SELECT COUNT(id_usuario) AS existe, id_usuario, id_almacen, usuario, activo 
-                    FROM usuario 
-                    WHERE usuario = '".$login_usuario."' AND password = '".md5($login_password)."'";
+            $query = "SELECT COUNT(u.id_usuario) AS existe, u.id_usuario, u.id_almacen, u.usuario, u.activo, a.nombre as almacen_nombre, a.codigo as almacen_codigo 
+                    FROM usuario u left join almacen a on u.id_almacen=a.id_almacen
+                    WHERE u.usuario = '".$login_usuario."' AND u.password = '".md5($login_password)."'";
             
             $existe = GetValueSQL($query, "existe");
             
@@ -210,6 +214,8 @@ class WebServiceController {
                             'result' => 'ok',
                             'id_usuario' => $id_usuario,
                             'id_almacen' => GetValueSQL($query, "id_almacen"),
+                            'almacen_nombre' => GetValueSQL($query, "almacen_nombre"),
+                            'almacen_codigo' => GetValueSQL($query, "almacen_codigo"),
                             'alias_usuario' => GetValueSQL($query, "usuario"),
                             'result_text' => 'Acceso correcto'
                         ];
@@ -244,6 +250,42 @@ class WebServiceController {
         $this->sendResponse($this->result); 
     }
 
+    // ---- GET ALMACENES_LIST
+    public function get_almacenes_list(){   
+       // if IMPLEMENTED
+        if ($this->implemented && $this->result != null){
+           $this->sendResponse($this->result); 
+           return;
+        }  
+        // ELSE USE NEXT MOCKUP
+
+        $id_usuario = Requesting("id_usuario");
+    
+        if (!$id_usuario) $this->sendError("parametro no valido");
+        $limit = !Requesting("limit") ? 10 : Requesting("limit");
+
+        // Query original para obtener productos como terminales
+        $query = "SELECT a.id_almacen, a.nombre, a.codigo 
+                    FROM almacen a  
+                    order by a.codigo
+                    LIMIT " . $limit;	
+        
+        $qresult = DatasetSQL($query);
+        $data = [];
+        
+        while ($row = mysqli_fetch_array($qresult)){
+            // Usamos el prefijo 'item_' para que el XML sea válido y el frontend lo reconozca como lista
+            $data['item_' . $row['id_almacen']] = [
+                'id_almacen' => $row['id_almacen'],
+                'nombre'      => $row['nombre'],
+                'codigo' => $row['codigo']
+            ];
+        }
+
+        $this->sendResponse($data ?: ['result' => 'empty']);
+    }   
+    
+
     // --- GET TERMINALES 
     public function get_terminales_list() {
         // if IMPLEMENTED
@@ -257,7 +299,7 @@ class WebServiceController {
         $id_usuario = Requesting("id_usuario");
         $id_almacen = Requesting("id_almacen");
 
-        if (!$id_usuario || !$id_almacen) $this->sendError("paametros no validos");
+        if (!$id_usuario || !$id_almacen) $this->sendError("parametros no validos");
         $limit = !Requesting("limit") ? 5 : Requesting("limit");
 
         // Query original para obtener productos como terminales

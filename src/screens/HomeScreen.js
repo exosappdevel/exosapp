@@ -27,6 +27,9 @@ export default function HomeScreen({ navigation }) {
   const [modalAviso, setModalAviso] = useState({ visible: false, titulo: "", mensaje: "" });
 
   // --- FUNCIÓN DE LOGOUT COMPATIBLE CON WEB ---
+  const handleAlmacen = () => {
+    navigation.navigate("CambioAlmacen");
+  }
   const handleLogout = () => {
     const logoutAction = () => {
       setUser({ id: "", nombre: "", tema: user.tema });
@@ -76,10 +79,10 @@ export default function HomeScreen({ navigation }) {
   };
 
   const menuItems = [
-    { id: "1", title: "Almacén", icon: "warehouse", color:"#3182ce"   },
-    { id: "2", title: "Despachos", icon: "truck-delivery", color:"#0b4e27" },
-    { id: "3", title: "Inventario", icon: "clipboard-list", color:"#ecc94b" },
-    { id: "4", title: "Configuración", icon: "cog", color:"#a0aec0" },
+    { id: "1", title: "Almacén", icon: "warehouse", color: "#3182ce" },
+    { id: "2", title: "Despachos", icon: "truck-delivery", color: "#0b4e27" },
+    { id: "3", title: "Inventario", icon: "clipboard-list", color: "#ecc94b" },
+    { id: "4", title: "Configuración", icon: "cog", color: "#a0aec0" },
   ];
 
   const renderItem = ({ item }) => (
@@ -91,7 +94,7 @@ export default function HomeScreen({ navigation }) {
         else setModalAviso({ visible: true, titulo: "Próximamente", mensaje: `Módulo ${item.title} en desarrollo.` });
       }}
     >
-      <View style={[styles.iconBox,  { backgroundColor: user.tema === 'dark' ? theme.card : `${item.color}20` , color:user.tema === 'dark' ?`${item.color}`:theme.text}] }>
+      <View style={[styles.iconBox, { backgroundColor: user.tema === 'dark' ? theme.card : `${item.color}20`, color: user.tema === 'dark' ? `${item.color}` : theme.text }]}>
         <MaterialCommunityIcons name={item.icon} size={32} color={item.color} />
       </View>
       <Text style={[styles.menuLabel, { color: theme.text }]}>{item.title}</Text>
@@ -101,12 +104,14 @@ export default function HomeScreen({ navigation }) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar barStyle={user.tema === 'dark' ? "light-content" : "dark-content"} />
-      
+
       <View style={[styles.navbar, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <View style={styles.navLeft}>
-          <MaterialCommunityIcons name="shield-check" size={24} color="#3182ce" />
-          <Text style={[styles.navText, { color: theme.text }]}>EXORTA ERP</Text>
-        </View>
+        <TouchableOpacity style={styles.navRight} onPress={handleAlmacen}>
+          <View style={styles.navLeft}>
+            <MaterialCommunityIcons name="warehouse" size={24} color="#3182ce" />
+            <Text style={[styles.navText, { color: theme.text }]}>{user.almacen_codigo}</Text>
+          </View>
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.navRight} onPress={handleLogout}>
           <Text style={[styles.navUser, { color: theme.textSub }]}>{user.nombre || "Usuario"}</Text>
