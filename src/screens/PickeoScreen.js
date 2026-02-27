@@ -38,7 +38,7 @@ export default function PickeoScreen({ navigation, route }) {
   const STORAGE_KEY = `@pickeo_storage_term_${id_terminal}`;
 
   useEffect(() => {
-    inicializarDatos();
+    inicializarDatos(true);
   }, [id_terminal]);
   useEffect(() => {
     if (modalCant.visible) {
@@ -55,22 +55,25 @@ export default function PickeoScreen({ navigation, route }) {
     }
   }, [modalCant.visible]);
 
-  const inicializarDatos = async () => {
+  const inicializarDatos = async (sync_server) => {
     try {
       setLoading(true);
       // 1. Intentar cargar progreso local
       const savedData = await AsyncStorage.getItem(STORAGE_KEY);
       let listaLocal = savedData ? JSON.parse(savedData) : [];
 
-      // 2. Llamada al WebService
-      const dataWS = await ApiService.get_pickeo_list(user.id_usuario, id_terminal);
+      
 
       // Validar si la respuesta es una lista o un objeto único
       let listaWS = [];
-      if (Array.isArray(dataWS)) {
-        listaWS = dataWS;
-      } else if (dataWS && typeof dataWS === "object" && !dataWS.result) {
-        listaWS = [dataWS];
+      if (sync_server){
+        // 2. Llamada al WebService
+        const dataWS = await ApiService.get_pickeo_list(user.id_usuario, id_terminal);
+        if (Array.isArray(dataWS)) {
+          listaWS = dataWS;
+        } else if (dataWS && typeof dataWS === "object" && !dataWS.result) {
+          listaWS = [dataWS];
+        }
       }
 
       // 3. Cruzar datos: Mandan los campos del WS pero respetamos la cantidad recolectada local
@@ -145,12 +148,12 @@ export default function PickeoScreen({ navigation, route }) {
           window.alert(esExito ? `Éxito: ${mensaje}` : `Aviso: ${mensaje}`);
           if (esExito) {
             await AsyncStorage.removeItem(STORAGE_KEY);
-            inicializarDatos();
+            inicializarDatos(false);
           }
         } else {
           // En móvil, usamos la API de React Native
           Alert.alert(esExito ? "Éxito" : "Aviso", mensaje, [
-            { text: "OK", onPress: () => esExito && inicializarDatos() },
+            { text: "OK", onPress: () => esExito && inicializarDatos(false) },
           ]);
         }
       } catch (e) {
@@ -163,13 +166,11 @@ export default function PickeoScreen({ navigation, route }) {
     };
     if (Platform.OS === "web") {
       if (window.confirm("¿Realizar Check Out de la terminal?"))
-        //inicializarDatos();
         confirmarEnvio();
     } else {
       Alert.alert("Check Out", "¿Realizar Check Out de la terminal?", [
         { text: "No" },
         { text: "Sí", onPress:
-          //inicializarDatos 
           confirmarEnvio 
         },
       ]);
@@ -196,6 +197,18 @@ export default function PickeoScreen({ navigation, route }) {
         <Text style={[styles.title, { color: theme.text }]}>
           {user.almacen_codigo} - {terminal_nombre}
         </Text>
+        <TouchableOpacity
+          onPress={() => inicializarDatos(true)
+          }
+        >
+          <MaterialCommunityIcons
+            name={"refresh"
+            }
+            size={24}
+            color="#3182ce"
+            style={styles.refresh_icon}
+          />
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() =>
             setSortBy(sortBy === "prioridad" ? "referencia" : "prioridad")
@@ -439,4 +452,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnConfirm: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
+  refresh_icon: { marginLeft:60 }
+
 });
