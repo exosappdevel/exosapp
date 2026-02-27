@@ -375,14 +375,20 @@ class WebServiceController {
         // ELSE USE NEXT MOCKUP
 
         $id_terminal = Requesting("id_terminal");
+        $id_usuario = Requesting("id_usuario");
         $datos_pickeo = Requesting("datos_pickeo"); // JSON enviado desde la App
 
-        if (!$id_terminal || !$datos_pickeo) {
-            return ['result' => 'error', 'result_text' => 'ID de terminal no recibido en ExosApp'];
+        if (!$id_terminal || !$datos_pickeo || $id_terminal) {
+            return ['result' => 'error', 'result_text' => 'Parametros incorrectos'];
         }
+        
+        $sSQL = "insert into pickeo_list(id, id_usuario, id_terminal, datos) " .
+                " values (0," . $id_usuario . "," . $id_terminal . ",'". $datos_pickeo  ."')";
+        executeSQL_WS()
         
         return [
             'result' => 'ok',
+            'sql' => $sSQL,
             'result_text' => 'Checkout procesado correctamente en ExosApp_WS'
         ];
     }
