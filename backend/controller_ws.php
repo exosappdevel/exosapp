@@ -71,16 +71,21 @@ class WebServiceController {
 
         if (!$action) {
             $this->sendError("Acción no especificada.");
+            return;
         }
 
         // --- NUEVA ACCIÓN: LISTAR TODOS LOS MÉTODOS ---
         if ($action === "audit_methods") {
-            $this->listAllMethods();
+           $this->result =  $this->listAllMethods();
+           $this->sendResponse($this->result);
+           return;
         }
 
         // --- AUDITOR DE MÉTODO INDIVIDUAL ---
         if ( $subAction === "audit") {
-            $this->auditMethod($action);
+            $this->result = $this->auditMethod($action);
+            $this->sendResponse($this->result);
+            return;
         }
 
         // --- FLUJO DE EJECUCIÓN (Lógica Real o Mockups) ---
@@ -94,7 +99,8 @@ class WebServiceController {
         $metodosProhibidos = ['run', 'sendResponse', 'sendError', '__construct', 'auditMethod', 'listAllMethods'];
         
         if (method_exists($this, $action) && !in_array($action, $metodosProhibidos)) {
-            $this->$action();
+            $this->result = $this->$action();
+            $this->sendResponse($this->result);
         } else {
             if ($this->implemented == true){
                  
@@ -108,6 +114,21 @@ class WebServiceController {
 
     // --- UTILIDADES ---
     private function sendResponse($data) {
+        $id_usuario = isset($_REQUEST["id_usuario"]) ? strval($_REQUEST["id_usuario"]) : "0";
+
+        $input = $_SERVER['QUERY_STRING'];
+
+        $output = XML_Envelope_Text($this->result);
+
+        $input_esc = str_replace("'", "\'", $input);
+        $output_esc = str_replace("'", "\'", $output);
+
+        // Armamos la consulta
+        $sSQL = "insert into ws_log(id, id_usuario, input, output) " .
+                "values (0, " . $id_usuario . ", '" . $input_esc . "', '" . $output_esc . "')";
+
+        ExecuteSQL_WS($sSQL ); 
+
         // XML_Envelope es la función encargada de transformar el array a XML
          $id_usuario = isset($_REQUEST["id_usuario"]) ? strval($_REQUEST["id_usuario"]) : "0";
         $input = $_SERVER['QUERY_STRING'];
@@ -117,9 +138,15 @@ class WebServiceController {
         ExecuteSQL_WS($sSQL ); 
         //$this->result["SQL"] = $sSQL;
         XML_Envelope($data);
-        exit;
     }
-
+    private function DatosIncorrectos(){
+        $input = $_SERVER['QUERY_STRING'];
+        return([
+            'result' => 'error',
+            'parametros' => $input,
+            'result_text' => "Datos incorrectos"
+        ]);       
+    }
     private function sendError($message) {
         $this->sendResponse([
             'result' => 'error',
@@ -145,7 +172,7 @@ class WebServiceController {
             $i++;
         }
 
-        $this->sendResponse($data);
+        return($data);
     }
 
     /**
@@ -164,7 +191,7 @@ class WebServiceController {
                 $data['item_' . $index] = ['nombre' => $param];
             }
 
-            $this->sendResponse($data);
+            return($data);
         } else {
             $this->sendError("No existe información de auditoría para la acción solicitada.");
         }
@@ -181,8 +208,7 @@ class WebServiceController {
             if ($rsTemp!=null){
                 $row = mysqli_fetch_array($rsTemp);
                 $value = $row[$field=='' ? 0 : $field];
-                $this->sendResponse([$field=>$value]); 
-                return;
+                return([$field=>$value]); 
             }
         }
         catch (Exception $e) {
@@ -202,7 +228,7 @@ class WebServiceController {
             $login_password = Requesting("login_password");
 
             if (!$login_usuario || !$login_password) {
-                $this->sendError("Usuario y contraseña requeridos.");
+                return $this->DatosIncorrectos();
             }
 
             // Se mantiene la lógica de tu archivo original con md5
@@ -255,7 +281,7 @@ class WebServiceController {
         $this->result["tema"] = $tema;
 
 
-        $this->sendResponse($this->result); 
+        return($this->result); 
     }
 
     // ---- GET ALMACENES_LIST
@@ -269,7 +295,8 @@ class WebServiceController {
 
         $id_usuario = Requesting("id_usuario");
     
-        if (!$id_usuario) $this->sendError("parametro no valido");
+        if (!$id_usuario) 
+            return $this->DatosIncorrectos();
         $limit = !Requesting("limit") ? 10 : Requesting("limit");
 
         // Query original para obtener productos como terminales
@@ -290,7 +317,7 @@ class WebServiceController {
             ];
         }
 
-        $this->sendResponse($data ?: ['result' => 'empty']);
+        return($data ?: ['result' => 'empty']);
     }   
     
 
@@ -307,7 +334,9 @@ class WebServiceController {
         $id_usuario = Requesting("id_usuario");
         $id_almacen = Requesting("id_almacen");
 
-        if (!$id_usuario || !$id_almacen) $this->sendError("parametros no validos");
+        if (!$id_usuario || !$id_almacen) 
+            return $this->DatosIncorrectos();
+
         $limit = !Requesting("limit") ? 5 : Requesting("limit");
 
         // Query original para obtener productos como terminales
@@ -327,7 +356,7 @@ class WebServiceController {
             ];
         }
 
-        $this->sendResponse($data ?: ['result' => 'empty']);
+       return ($data ?: ['result' => 'empty']);
     }
 
     // --- GET PICKEO (RESTAURADO) ---
@@ -342,7 +371,7 @@ class WebServiceController {
 
         $id_terminal = Requesting("id_terminal");
         if (!$id_terminal) {
-            $this->sendError("ID de terminal requerido.");
+            return $this->DatosIncorrectos();
         }
         $limit = !Requesting("limit") ? 10 : Requesting("limit");
 
@@ -371,7 +400,7 @@ class WebServiceController {
             ];
         }
 
-        $this->sendResponse($data ?: ['result' => 'empty']);
+        return $data ?: ['result' => 'empty'];
     }
     public function pickeo_checkout() {
         // if IMPLEMENTED
@@ -383,14 +412,20 @@ class WebServiceController {
         // ELSE USE NEXT MOCKUP
 
         $id_terminal = Requesting("id_terminal");
+        $id_usuario = Requesting("id_usuario");
         $datos_pickeo = Requesting("datos_pickeo"); // JSON enviado desde la App
 
-        if (!$id_terminal || !$datos_pickeo) {
-            return ['result' => 'error', 'result_text' => 'ID de terminal no recibido en ExosApp'];
+        if ( !$id_usuario || !$datos_pickeo || !$id_terminal ) {
+            return $this->DatosIncorrectos();
         }
+        
+        $sSQL = "insert into pickeo_list(id, id_usuario, id_terminal, data) " .
+                " values (0," . $id_usuario . "," . $id_terminal . ",'". $datos_pickeo  ."')";
+        ExecuteSQL_WS($sSQL);
         
         return [
             'result' => 'ok',
+            //'sql' => $sSQL,
             'result_text' => 'Checkout procesado correctamente en ExosApp_WS'
         ];
     }
