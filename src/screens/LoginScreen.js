@@ -110,6 +110,7 @@ export default function LoginScreen({ navigation }) {
             value={usuario}
             onChangeText={setUsuario}
             autoCapitalize="none"
+            autoCorrect={false}
           />
 
           <Text style={styles.label}>Contraseña</Text>
@@ -119,6 +120,8 @@ export default function LoginScreen({ navigation }) {
             placeholderTextColor="#ccc"
             secureTextEntry={true}
             value={password}
+            autoCapitalize="none" // <--- Agrega esto
+            autoCorrect={false}
             onChangeText={setPassword}
           />
 
@@ -184,8 +187,8 @@ const styles = StyleSheet.create({
     maxWidth: 200,      // Pero no se pasa del máximo que tiene el form
     height: 60,        // Ajusta la altura a tu gusto
     marginBottom: 0,
-    marginTop: 100,
-    marginLeft:200,
+    marginTop: 20,
+    //marginLeft:200,
     borderRadius: 8,
     //backgroundColor: "#ececec", // Fondo blanco para el logo
     alignSelf: "center", // Se asegura de estar centrado si el padre es más ancho

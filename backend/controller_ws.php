@@ -97,6 +97,7 @@ class WebServiceController {
             $this->$action();
         } else {
             if ($this->implemented == true){
+                 
                 $this->sendResponse($this->result);
             }
             else{
@@ -108,6 +109,13 @@ class WebServiceController {
     // --- UTILIDADES ---
     private function sendResponse($data) {
         // XML_Envelope es la función encargada de transformar el array a XML
+         $id_usuario = isset($_REQUEST["id_usuario"]) ? strval($_REQUEST["id_usuario"]) : "0";
+        $input = $_SERVER['QUERY_STRING'];
+        $output = XML_Envelope_Text($this->result);
+        $sSQL = "insert into ws_log(id,id_usuario,input,output)" .
+            "values (0,". $id_usuario. ",'". $input . "','" . $output . "')" ;
+        ExecuteSQL_WS($sSQL ); 
+        //$this->result["SQL"] = $sSQL;
         XML_Envelope($data);
         exit;
     }
