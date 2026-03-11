@@ -31,6 +31,10 @@ class WebServiceController {
      * Mapa de metadatos para el Auditor de Métodos
      */
     private $metodos_info = [
+        'audit_ws_log'=> [
+            'descripcion' => 'audita los logs de webservice.',
+            'parameters' => ['limit','page','search']
+        ],
         'metodo_ejemplo' => [
             'descripcion' => 'Ejemplo de implementacion real.',
             'parameters'  => ['id']
@@ -118,25 +122,26 @@ class WebServiceController {
 
         $input = $_SERVER['QUERY_STRING'];
 
-        $output = XML_Envelope_Text($this->result);
+        $output = XML_Envelope_Text($data);
 
         $input_esc = str_replace("'", "\'", $input);
         $output_esc = str_replace("'", "\'", $output);
-
+        
+        $nombre ="";
+        if ( ($id_usuario != "") && ($id_usuario != "0")) {                   
+            $nombre =GetValueSQL("select coalesce(max(nombre), '') as usuario_nombre from usuario where id_usuario=" . $id_usuario, "usuario_nombre");
+        }
         // Armamos la consulta
-        $sSQL = "insert into ws_log(id, id_usuario, input, output) " .
-                "values (0, " . $id_usuario . ", '" . $input_esc . "', '" . $output_esc . "')";
+        $sSQL = "insert into ws_log(id, id_usuario, nombre, input, output) " .
+                "values (0, " . $id_usuario . ",'". $nombre ."','" . $input_esc . "', '" . $output_esc . "')";
 
-        ExecuteSQL_WS($sSQL ); 
-
-        // XML_Envelope es la función encargada de transformar el array a XML
-         $id_usuario = isset($_REQUEST["id_usuario"]) ? strval($_REQUEST["id_usuario"]) : "0";
-        $input = $_SERVER['QUERY_STRING'];
-        $output = XML_Envelope_Text($this->result);
-        $sSQL = "insert into ws_log(id,id_usuario,input,output)" .
-            "values (0,". $id_usuario. ",'". $input . "','" . $output . "')" ;
-        ExecuteSQL_WS($sSQL ); 
-        //$this->result["SQL"] = $sSQL;
+        $action = Requesting("action");
+        if ( ($action != "listAllMethods") 
+            && ($action != "auditMethod") 
+            && ($action != "audit_ws_log") 
+            && ($action != "audit_ws_log_data") )
+                ExecuteSQL_WS($sSQL ); 
+        //$data["SQL"] = $sSQL;
         XML_Envelope($data);
     }
     private function DatosIncorrectos(){
@@ -197,8 +202,62 @@ class WebServiceController {
         }
     }
 
+    private function audit_ws_log(){
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $search = isset($_GET['search']) ? $_GET['search'] : '';
+        $offset = ($page - 1) * $limit;
 
+        // 1. Contar total de registros para la paginación (con filtro)
+        $searchQuery = "%$search%";
+        $sqlCount = "SELECT COUNT(*) as total FROM ws_log WHERE nombre LIKE '%" . $search . "%'";
+        $totalRows = GetValueSQL_WS($sqlCount,"total");
+        $totalPages = ceil($totalRows / $limit);
+
+        // 2. Obtener los datos paginados
+        $sqlData = "SELECT * FROM ws_log WHERE nombre LIKE '%" . $search . "%' ORDER BY id DESC LIMIT $limit OFFSET $offset";
+        $records = DatasetSQL_WS($sqlData);
+        $data = [];
+        
+        while ($row = mysqli_fetch_array($records)){
+            // Usamos el prefijo 'item_' para que el XML sea válido y el frontend lo reconozca como lista
+            $input_esc = str_replace("'", "\'", $row['input']);
+            $output_esc = str_replace("'", "\'", $row['output']);
+            $data['id' . $row['id']] = [
+                'fecha' => $row['fecha'],
+                'hora' => $row['hora'],
+                'id_usuario' => $row['id_usuario'],
+                'nombre'      => $row['nombre']
+            ];
+        }
+        $data = [
+                'result'      => 'true',
+                'sql' => $sqlData,
+                'data'  => $data
+            ];
+        return ($data); 
+    }
+    private function audit_ws_log_data(){
+        $id_log = Requesting("id_log");
+        $type = Requesting("type");
+        if (!$id_log || !$type) {
+            return $this->DatosIncorrectos();
+        }
+        $sqlData = "select " . $type ." from ws_log where id=" . $id_log;
+        $value = GetValueSQL_WS($sqlData,$type);
+        echo $value;
+        exit;
+        $data = [
+            'result'      => 'true',
+            'sql' => $sqlData,
+            'value'  => $value
+        ];
+        return ($data);  
+
+    }
+    //****************************************************************************************** */
     // -------------------------- IMPLEMENTACION DE LOS WEB SERVICES MOCKUP --------------------
+    //****************************************************************************************** */
     private function db_test(){
         try{
             $dbConx = mysqli_connect(Requesting('host'),Requesting('user'),Requesting('password'),Requesting('database'));
